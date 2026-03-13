@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube 音乐频道 AI 发布助手</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #111a2b;
+      --panel-2: #15223a;
+      --text: #e8eefc;
+      --muted: #9fb0d4;
+      --accent: #3dd6b8;
+      --accent-2: #6ec1ff;
+      --danger: #ff6b6b;
+      --border: #284066;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at 20% 20%, #14213b, #0b1220 55%);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 24px auto;
+      padding: 0 16px 40px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #13223b, #0d1728);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      letter-spacing: 0.5px;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: rgba(17, 26, 43, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: var(--accent-2);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #2b426a;
+      background: #0f1a2d;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    textarea { min-height: 110px; resize: vertical; }
+
+    small.help {
+      display: block;
+      margin-top: 6px;
+      color: #88a2cf;
+      font-size: 12px;
+    }
+
+    .btn {
+      margin-top: 12px;
+      cursor: pointer;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #39a4ff);
+      color: #062532;
+      font-weight: 700;
+      transition: transform 0.15s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .status {
+      margin-top: 10px;
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.error { color: var(--danger); }
+    .status.ok { color: var(--accent); }
+
+    .preview {
+      margin-top: 10px;
+      display: none;
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #2f4f80;
+      max-height: 200px;
+      object-fit: contain;
+      background: #0a1221;
+    }
+
+    .result-wrap {
+      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .result-item {
+      background: var(--panel-2);
+      border: 1px solid #36588b;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .result-title {
+      margin: 0;
+      color: #9ed0ff;
+      font-size: 14px;
+    }
+
+    .copy-btn {
+      width: auto;
+      padding: 6px 10px;
+      border: 1px solid #4e74a9;
+      cursor: pointer;
+      background: #14233c;
+      color: #c7e3ff;
+      font-size: 12px;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0b1424;
+      border: 1px solid #2f4f7f;
+      border-radius: 8px;
+      padding: 10px;
+      color: #dceaff;
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .row, .row-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <h1>YouTube 音乐视频发布助手（多模型 API）</h1>
+      <p>输入音乐类型 + 上传 YouTube 受众截图，自动生成标题、简介、两套标签、缩略图英文指令（图中文字要求繁体中文）。</p>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>1) 模型与 API 配置</h2>
+
+        <label for="provider">服务商</label>
+        <select id="provider">
+          <option value="openai_compatible" selected>OpenAI 兼容（DeepSeek / OpenRouter / 国内多数网关）</option>
+          <option value="anthropic">Anthropic Claude</option>
+          <option value="gemini">Google Gemini</option>
+        </select>
+
+        <div class="row">
+          <div>
+            <label for="apiKey">API Key</label>
+            <input id="apiKey" type="password" value="" placeholder="请手动填入你的 API Key" />
+          </div>
+          <div>
+            <label for="modelName">模型名（可手输，也可检测后选）</label>
+            <input id="modelName" value="deepseek-chat" list="modelList" />
+            <datalist id="modelList"></datalist>
+          </div>
+        </div>
+
+        <label for="baseUrl">Base URL / Endpoint</label>
+        <input id="baseUrl" value="https://api.deepseek.com/chat/completions" />
+        <small class="help">OpenAI 兼容默认填 DeepSeek，可手动改成任意兼容地址。</small>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <button id="testConnBtn" type="button">测试并检测可用模型</button>
+          </div>
+          <div>
+            <label for="modelDetectInfo">检测结果</label>
+            <input id="modelDetectInfo" value="请先点击左侧测试按钮" readonly />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="configName">保存配置名称</label>
+            <input id="configName" placeholder="例：DeepSeek主账号 / Claude备用" />
+          </div>
+          <div>
+            <label for="configSelect">已保存配置</label>
+            <select id="configSelect">
+              <option value="">暂无已保存配置</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <button id="saveConfigBtn" type="button">保存当前配置</button>
+          </div>
+          <div>
+            <button id="deleteConfigBtn" type="button">删除当前选中配置</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="temperature">Temperature</label>
+            <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.9" />
+          </div>
+          <div>
+            <label for="maxTokens">Max Tokens</label>
+            <input id="maxTokens" type="number" min="512" step="128" value="2800" />
+          </div>
+        </div>
+
+        <h2 style="margin-top:16px;">2) 内容输入</h2>
+
+        <div class="row">
+          <div>
+            <label for="musicGenre">音乐类型</label>
+            <input id="musicGenre" placeholder="例：Lofi HipHop / Blues / Ambient Piano" />
+          </div>
+          <div>
+            <label for="angle">切入角度（可空）</label>
+            <input id="angle" placeholder="例：深夜下班后、雨夜开车、失恋修复" />
+          </div>
+        </div>
+
+        <label for="audience">目标群体（必填）</label>
+        <input id="audience" placeholder="例：25-34岁上班族、夜间学习人群、轻度焦虑者" />
+
+        <label for="shot">上传 YouTube 后台受众截图（jpg/png）</label>
+        <input id="shot" type="file" accept="image/png,image/jpeg,image/webp" />
+        <img id="preview" class="preview" alt="screenshot preview" />
+
+        <h2 style="margin-top:16px;">3) 生成参数（可自定义）</h2>
+
+        <div class="row-3">
+          <div>
+            <label for="titleCount">标题数量</label>
+            <input id="titleCount" type="number" min="1" value="3" />
+          </div>
+          <div>
+            <label for="descCount">简介数量</label>
+            <input id="descCount" type="number" min="1" value="1" />
+          </div>
+          <div>
+            <label for="thumbCount">缩略图指令数量</label>
+            <input id="thumbCount" type="number" min="1" value="3" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="titleMin">标题最小字数</label>
+            <input id="titleMin" type="number" min="1" value="80" />
+          </div>
+          <div>
+            <label for="titleMax">标题最大字数</label>
+            <input id="titleMax" type="number" min="1" value="95" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="descLen">简介默认字数</label>
+            <input id="descLen" type="number" min="50" value="300" />
+          </div>
+          <div>
+            <label for="tagRange">标签数量区间</label>
+            <input id="tagRange" value="10-20" />
+          </div>
+        </div>
+
+        <label for="masterPrompt">主提示词（可改）</label>
+        <textarea id="masterPrompt"></textarea>
+
+        <button id="runBtn" class="btn">开始生成</button>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2>4) 结果（每块都可一键复制）</h2>
+        <small class="help">默认会生成 3 标题 + 1 简介 + 2 套标签 + 3 缩略图指令。你改了数量后会按你配置生成。</small>
+        <div id="resultWrap" class="result-wrap"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const defaultPrompt = `# Role: YouTube 爆款音乐内容策划师 & 视觉总监
+
+## Goal
+你需要根据我提供的【音乐类型】和【切入角度】，输出一套完整的 YouTube 视频发布方案。方案必须以“高点击率（High CTR）”和“高完播率”为核心目标。
+
+## Input Variables
+1) 音乐类型 (Music Genre)
+2) 切入角度 (Angle/Mood)
+3) 目标受众群体
+
+## Constraints
+1. 所有输出内容必须针对繁体中文语境优化。
+2. 语言口语化、有共鸣。
+3. 封面设计要规避平台违规风险。
+4. 缩略图指令必须是英文，并在最后强调画面文字用繁体中文。
+5. 如果用户没填切入角度，自动依据目标群体生成：不红海、不离谱、不瞎编。
+6. 标题与缩略图方案必须一一对应，且方向一致。
+
+## Output
+- 标题方案（按配置数量）
+- 简介（按配置数量）
+- 两套标签：A=#标签（SEO放简介），B=逗号标签（放Tag栏）
+- 缩略图英文指令（按配置数量，逐条对应标题）`;
+
+    const providerEl = document.getElementById("provider");
+    const apiKeyEl = document.getElementById("apiKey");
+    const modelEl = document.getElementById("modelName");
+    const baseUrlEl = document.getElementById("baseUrl");
+    const tempEl = document.getElementById("temperature");
+    const maxTokensEl = document.getElementById("maxTokens");
+    const musicGenreEl = document.getElementById("musicGenre");
+    const angleEl = document.getElementById("angle");
+    const audienceEl = document.getElementById("audience");
+    const shotEl = document.getElementById("shot");
+    const previewEl = document.getElementById("preview");
+    const titleCountEl = document.getElementById("titleCount");
+    const descCountEl = document.getElementById("descCount");
+    const thumbCountEl = document.getElementById("thumbCount");
+    const titleMinEl = document.getElementById("titleMin");
+    const titleMaxEl = document.getElementById("titleMax");
+    const descLenEl = document.getElementById("descLen");
+    const tagRangeEl = document.getElementById("tagRange");
+    const promptEl = document.getElementById("masterPrompt");
+    const testConnBtn = document.getElementById("testConnBtn");
+    const modelListEl = document.getElementById("modelList");
+    const modelDetectInfoEl = document.getElementById("modelDetectInfo");
+    const configNameEl = document.getElementById("configName");
+    const configSelectEl = document.getElementById("configSelect");
+    const saveConfigBtn = document.getElementById("saveConfigBtn");
+    const deleteConfigBtn = document.getElementById("deleteConfigBtn");
+    const runBtn = document.getElementById("runBtn");
+    const statusEl = document.getElementById("status");
+    const resultWrap = document.getElementById("resultWrap");
+
+    const CONFIG_STORAGE_KEY = "yt_music_ai_saved_configs_v1";
+
+    promptEl.value = defaultPrompt;
+    resetModelList();
+    refreshConfigSelect();
+
+    providerEl.addEventListener("change", () => {
+      const v = providerEl.value;
+      if (v === "openai_compatible") {
+        baseUrlEl.value = "https://api.deepseek.com/chat/completions";
+        modelEl.value = "deepseek-chat";
+      } else if (v === "anthropic") {
+        baseUrlEl.value = "https://api.anthropic.com/v1/messages";
+        modelEl.value = "claude-3-5-sonnet-latest";
+      } else {
+        baseUrlEl.value = "https://generativelanguage.googleapis.com/v1beta/models";
+        modelEl.value = "gemini-1.5-pro";
+      }
+      resetModelList();
+    });
+
+    configSelectEl.addEventListener("change", () => {
+      const name = configSelectEl.value;
+      if (!name) return;
+      const config = getSavedConfigs().find((x) => x.name === name);
+      if (!config) return;
+      providerEl.value = config.provider || "openai_compatible";
+      apiKeyEl.value = config.apiKey || "";
+      baseUrlEl.value = config.baseUrl || "";
+      modelEl.value = config.model || "";
+      tempEl.value = config.temperature || "0.9";
+      maxTokensEl.value = config.maxTokens || "2800";
+      musicGenreEl.value = config.musicGenre || "";
+      angleEl.value = config.angle || "";
+      audienceEl.value = config.audience || "";
+      titleCountEl.value = config.titleCount || "3";
+      descCountEl.value = config.descCount || "1";
+      thumbCountEl.value = config.thumbCount || "3";
+      titleMinEl.value = config.titleMin || "80";
+      titleMaxEl.value = config.titleMax || "95";
+      descLenEl.value = config.descLen || "300";
+      tagRangeEl.value = config.tagRange || "10-20";
+      promptEl.value = config.masterPrompt || defaultPrompt;
+      configNameEl.value = config.name || "";
+      resetModelList();
+      setStatus(`已加载配置：${config.name}`, "ok");
+    });
+
+    saveConfigBtn.addEventListener("click", () => {
+      try {
+        const name = configNameEl.value.trim();
+        if (!name) throw new Error("请先填写配置名称");
+        const data = {
+          name,
+          provider: providerEl.value,
+          apiKey: apiKeyEl.value.trim(),
+          baseUrl: baseUrlEl.value.trim(),
+          model: modelEl.value.trim(),
+          temperature: tempEl.value,
+          maxTokens: maxTokensEl.value,
+          musicGenre: musicGenreEl.value,
+          angle: angleEl.value,
+          audience: audienceEl.value,
+          titleCount: titleCountEl.value,
+          descCount: descCountEl.value,
+          thumbCount: thumbCountEl.value,
+          titleMin: titleMinEl.value,
+          titleMax: titleMaxEl.value,
+          descLen: descLenEl.value,
+          tagRange: tagRangeEl.value,
+          masterPrompt: promptEl.value,
+          updatedAt: Date.now()
+        };
+        const configs = getSavedConfigs().filter((x) => x.name !== name);
+        configs.unshift(data);
+        saveConfigs(configs.slice(0, 20));
+        refreshConfigSelect(name);
+        setStatus(`配置已保存：${name}`, "ok");
+      } catch (err) {
+        setStatus(err.message || "保存配置失败", "error");
+      }
+    });
+
+    deleteConfigBtn.addEventListener("click", () => {
+      const name = configSelectEl.value;
+      if (!name) {
+        setStatus("请先在下拉框选一个要删除的配置", "error");
+        return;
+      }
+      const configs = getSavedConfigs().filter((x) => x.name !== name);
+      saveConfigs(configs);
+      refreshConfigSelect();
+      if (configNameEl.value.trim() === name) configNameEl.value = "";
+      setStatus(`已删除配置：${name}`, "ok");
+    });
+
+    testConnBtn.addEventListener("click", async () => {
+      try {
+        const apiKey = apiKeyEl.value.trim();
+        const baseUrl = baseUrlEl.value.trim();
+        const provider = providerEl.value;
+        if (!apiKey) throw new Error("请先填写 API Key");
+        if (!baseUrl) throw new Error("请先填写 Base URL / Endpoint");
+
+        testConnBtn.disabled = true;
+        setStatus("正在检测模型列表...", "");
+        const models = await detectModels(provider, baseUrl, apiKey);
+        fillModelList(models);
+        setStatus(`检测成功，共 ${models.length} 个可用模型`, "ok");
+      } catch (err) {
+        resetModelList("模型检测失败，可手动输入模型名");
+        setStatus(err.message || "模型检测失败", "error");
+      } finally {
+        testConnBtn.disabled = false;
+      }
+    });
+
+    shotEl.addEventListener("change", async () => {
+      const file = shotEl.files && shotEl.files[0];
+      if (!file) {
+        previewEl.style.display = "none";
+        return;
+      }
+      const dataUrl = await fileToDataURL(file);
+      previewEl.src = dataUrl;
+      previewEl.style.display = "block";
+    });
+
+    runBtn.addEventListener("click", async () => {
+      try {
+        clearStatus();
+        resultWrap.innerHTML = "";
+
+        const apiKey = apiKeyEl.value.trim();
+        const provider = providerEl.value;
+        const model = modelEl.value.trim();
+        const baseUrl = baseUrlEl.value.trim();
+
+        if (!apiKey) throw new Error("请填写 API Key");
+        if (!model) throw new Error("请填写模型名");
+        if (!baseUrl) throw new Error("请填写 Endpoint / Base URL");
+        if (!musicGenreEl.value.trim()) throw new Error("请填写音乐类型");
+        if (!audienceEl.value.trim()) throw new Error("请填写目标群体");
+
+        setStatus("正在生成，请稍等...", "");
+        runBtn.disabled = true;
+
+        const imageDataUrl = await getImageDataUrlOrNull();
+        const userPrompt = buildUserPrompt(imageDataUrl);
+
+        let raw;
+        if (provider === "openai_compatible") {
+          raw = await callOpenAICompatible(baseUrl, apiKey, model, userPrompt, imageDataUrl);
+        } else if (provider === "anthropic") {
+          raw = await callAnthropic(baseUrl, apiKey, model, userPrompt, imageDataUrl);
+        } else {
+          raw = await callGemini(baseUrl, apiKey, model, userPrompt, imageDataUrl);
+        }
+
+        const parsed = parseModelJSON(raw);
+        renderResults(parsed);
+        setStatus("生成完成", "ok");
+      } catch (err) {
+        setStatus(err.message || "生成失败", "error");
+      } finally {
+        runBtn.disabled = false;
+      }
+    });
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = `status ${cls}`;
+    }
+
+    function clearStatus() {
+      statusEl.textContent = "";
+      statusEl.className = "status";
+    }
+
+    function getSavedConfigs() {
+      try {
+        const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function saveConfigs(configs) {
+      localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(configs || []));
+    }
+
+    function refreshConfigSelect(selectedName) {
+      const configs = getSavedConfigs();
+      configSelectEl.innerHTML = "";
+      if (!configs.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "暂无已保存配置";
+        configSelectEl.appendChild(option);
+        return;
+      }
+      configs.forEach((cfg, idx) => {
+        const option = document.createElement("option");
+        option.value = cfg.name;
+        option.textContent = cfg.name;
+        if ((selectedName && cfg.name === selectedName) || (!selectedName && idx === 0)) {
+          option.selected = true;
+        }
+        configSelectEl.appendChild(option);
+      });
+    }
+
+    function resetModelList(message) {
+      modelListEl.innerHTML = "";
+      modelDetectInfoEl.value = message || "请先点击左侧测试按钮";
+    }
+
+    function fillModelList(models) {
+      modelListEl.innerHTML = "";
+      models.forEach((m) => {
+        const option = document.createElement("option");
+        option.value = m;
+        modelListEl.appendChild(option);
+      });
+      if (models[0]) modelEl.value = models[0];
+      modelDetectInfoEl.value = `检测到 ${models.length} 个模型，可在上方模型名框直接选择/输入`;
+    }
+
+    async function detectModels(provider, baseUrl, apiKey) {
+      if (provider === "openai_compatible") {
+        return detectOpenAICompatibleModels(baseUrl, apiKey);
+      }
+      if (provider === "anthropic") {
+        return detectAnthropicModels(baseUrl, apiKey);
+      }
+      return detectGeminiModels(baseUrl, apiKey);
+    }
+
+    function toModelsUrl(baseUrl, provider) {
+      if (provider === "openai_compatible") {
+        return baseUrl
+          .replace(/\/chat\/completions(?:\?.*)?$/i, "/models")
+          .replace(/\/responses(?:\?.*)?$/i, "/models");
+      }
+      if (provider === "anthropic") {
+        return baseUrl.replace(/\/messages(?:\?.*)?$/i, "/models");
+      }
+      return baseUrl.replace(/\/$/, "");
+    }
+
+    async function detectOpenAICompatibleModels(baseUrl, apiKey) {
+      const candidates = buildOpenAIModelUrls(baseUrl);
+      let lastErr = "";
+      for (const url of candidates) {
+        try {
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${apiKey}` }
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            lastErr = data.error?.message || `HTTP ${res.status}`;
+            continue;
+          }
+          const models = (data.data || []).map((x) => x.id || x.name).filter(Boolean);
+          if (models.length) return models;
+        } catch (e) {
+          lastErr = e.message || String(e);
+        }
+      }
+      throw new Error(`没检测到模型，请检查 API Key / Base URL。${lastErr ? "详情: " + lastErr : ""}`);
+    }
+
+    function buildOpenAIModelUrls(baseUrl) {
+      const clean = String(baseUrl || "").trim().replace(/\/$/, "");
+      const urls = new Set();
+      urls.add(clean.replace(/\/chat\/completions(?:\?.*)?$/i, "/models"));
+      urls.add(clean.replace(/\/responses(?:\?.*)?$/i, "/models"));
+      urls.add(clean.replace(/\/completions(?:\?.*)?$/i, "/models"));
+      urls.add(`${clean}/models`);
+      urls.add(`${clean}/v1/models`);
+      if (/\/v\d+/i.test(clean)) {
+        urls.add(clean.replace(/(\/v\d+).*/, "$1/models"));
+      }
+      try {
+        const u = new URL(clean);
+        urls.add(`${u.origin}/v1/models`);
+        urls.add(`${u.origin}/models`);
+      } catch (_) {}
+      return [...urls];
+    }
+
+    async function detectAnthropicModels(baseUrl, apiKey) {
+      const url = toModelsUrl(baseUrl, "anthropic");
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01"
+          }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const models = (data.data || []).map((x) => x.id).filter(Boolean);
+          if (models.length) return models;
+        }
+      } catch (_) {}
+      return [
+        "claude-3-5-sonnet-latest",
+        "claude-3-7-sonnet-latest",
+        "claude-3-5-haiku-latest",
+        "claude-3-opus-latest"
+      ];
+    }
+
+    async function detectGeminiModels(baseUrl, apiKey) {
+      const root = toModelsUrl(baseUrl, "gemini").replace(/\/models(?:\?.*)?$/, "");
+      const url = `${root}/models?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, { method: "GET" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `检测失败: ${res.status}`);
+      const models = (data.models || [])
+        .map((x) => (x.name || "").replace(/^models\//, ""))
+        .filter(Boolean);
+      if (!models.length) throw new Error("没检测到模型，请检查 API Key 和 Base URL");
+      return models;
+    }
+
+    function parseRange(raw) {
+      const m = String(raw || "").trim().match(/(\d+)\s*[-~]\s*(\d+)/);
+      if (!m) return { min: 10, max: 20 };
+      return { min: Number(m[1]), max: Number(m[2]) };
+    }
+
+    function buildUserPrompt(imageDataUrl) {
+      const angle = angleEl.value.trim();
+      const tagRange = parseRange(tagRangeEl.value);
+
+      const payload = {
+        musicGenre: musicGenreEl.value.trim(),
+        angle: angle || "",
+        audience: audienceEl.value.trim(),
+        config: {
+          titleCount: Number(titleCountEl.value || 3),
+          descriptionCount: Number(descCountEl.value || 1),
+          thumbnailCount: Number(thumbCountEl.value || 3),
+          titleCharMin: Number(titleMinEl.value || 80),
+          titleCharMax: Number(titleMaxEl.value || 95),
+          descriptionCharTarget: Number(descLenEl.value || 300),
+          tagCountMin: tagRange.min,
+          tagCountMax: tagRange.max
+        },
+        customPrompt: promptEl.value.trim(),
+        imageProvided: Boolean(imageDataUrl)
+      };
+
+      return `你是专业YouTube音乐频道策划师。\n` +
+        `请严格输出JSON，禁止输出markdown。\n` +
+        `若未提供切入角度，你必须自动生成一个中竞争、可落地、有真实使用场景的切入角度。\n` +
+        `标题与缩略图指令必须一一对应，方向一致。\n` +
+        `缩略图指令必须英文，并在每条结尾强调: Use Traditional Chinese text in the image.\n\n` +
+        `输入参数如下:\n${JSON.stringify(payload, null, 2)}\n\n` +
+        `JSON Schema:\n` +
+        `{\n` +
+        `  "usedAngle": "string",\n` +
+        `  "titles": ["string"],\n` +
+        `  "descriptions": ["string"],\n` +
+        `  "seoHashtags": ["#tag"],\n` +
+        `  "tagList": ["tag1", "tag2"],\n` +
+        `  "thumbnails": [\n` +
+        `    {"forTitle": "string", "prompt": "string"}\n` +
+        `  ]\n` +
+        `}\n` +
+        `务必返回合法JSON。`;
+    }
+
+    async function callOpenAICompatible(url, apiKey, model, userPrompt, imageDataUrl) {
+      const content = imageDataUrl
+        ? [
+            { type: "text", text: userPrompt + "\n\n以下是YouTube后台受众截图。" },
+            { type: "image_url", image_url: { url: imageDataUrl } }
+          ]
+        : [{ type: "text", text: userPrompt }];
+
+      const body = {
+        model,
+        temperature: Number(tempEl.value || 0.9),
+        max_tokens: Number(maxTokensEl.value || 2800),
+        messages: [
+          { role: "system", content: "你必须输出合法JSON，不要输出其他内容。" },
+          { role: "user", content }
+        ]
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `请求失败: ${res.status}`);
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) throw new Error("模型未返回内容");
+      return text;
+    }
+
+    async function callAnthropic(url, apiKey, model, userPrompt, imageDataUrl) {
+      const content = [];
+      content.push({ type: "text", text: userPrompt });
+      if (imageDataUrl) {
+        const [meta, base64] = imageDataUrl.split(",");
+        const mediaType = (meta.match(/data:(.*?);base64/) || [])[1] || "image/png";
+        content.push({
+          type: "image",
+          source: { type: "base64", media_type: mediaType, data: base64 }
+        });
+      }
+
+      const body = {
+        model,
+        max_tokens: Number(maxTokensEl.value || 2800),
+        temperature: Number(tempEl.value || 0.9),
+        messages: [{ role: "user", content }]
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `请求失败: ${res.status}`);
+      const text = data.content?.find((x) => x.type === "text")?.text;
+      if (!text) throw new Error("模型未返回内容");
+      return text;
+    }
+
+    async function callGemini(baseUrl, apiKey, model, userPrompt, imageDataUrl) {
+      const endpoint = `${baseUrl}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const parts = [{ text: userPrompt }];
+      if (imageDataUrl) {
+        const [meta, base64] = imageDataUrl.split(",");
+        const mimeType = (meta.match(/data:(.*?);base64/) || [])[1] || "image/png";
+        parts.push({ inlineData: { mimeType, data: base64 } });
+      }
+
+      const body = {
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+          temperature: Number(tempEl.value || 0.9),
+          maxOutputTokens: Number(maxTokensEl.value || 2800)
+        }
+      };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `请求失败: ${res.status}`);
+      const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("\n");
+      if (!text) throw new Error("模型未返回内容");
+      return text;
+    }
+
+    function parseModelJSON(raw) {
+      const cleaned = String(raw).trim()
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```$/i, "");
+
+      const first = cleaned.indexOf("{");
+      const last = cleaned.lastIndexOf("}");
+      if (first < 0 || last < 0) throw new Error("模型返回不是JSON，请换模型或重试");
+
+      const jsonText = cleaned.slice(first, last + 1);
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch (e) {
+        throw new Error("JSON解析失败，请降低温度或重试");
+      }
+
+      parsed.titles = Array.isArray(parsed.titles) ? parsed.titles : [];
+      parsed.descriptions = Array.isArray(parsed.descriptions) ? parsed.descriptions : [];
+      parsed.seoHashtags = Array.isArray(parsed.seoHashtags) ? parsed.seoHashtags : [];
+      parsed.tagList = Array.isArray(parsed.tagList) ? parsed.tagList : [];
+      parsed.thumbnails = Array.isArray(parsed.thumbnails) ? parsed.thumbnails : [];
+      return parsed;
+    }
+
+    function addResultBox(title, content) {
+      const block = document.createElement("div");
+      block.className = "result-item";
+
+      const head = document.createElement("div");
+      head.className = "result-head";
+
+      const h = document.createElement("h3");
+      h.className = "result-title";
+      h.textContent = title;
+
+      const btn = document.createElement("button");
+      btn.className = "copy-btn";
+      btn.type = "button";
+      btn.textContent = "复制";
+      btn.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(content);
+        btn.textContent = "已复制";
+        setTimeout(() => (btn.textContent = "复制"), 1000);
+      });
+
+      const pre = document.createElement("pre");
+      pre.textContent = content;
+
+      head.appendChild(h);
+      head.appendChild(btn);
+      block.appendChild(head);
+      block.appendChild(pre);
+      resultWrap.appendChild(block);
+    }
+
+    function renderResults(data) {
+      resultWrap.innerHTML = "";
+
+      if (data.usedAngle) addResultBox("实际使用切入角度", data.usedAngle);
+
+      data.titles.forEach((t, i) => addResultBox(`标题 ${i + 1}`, t));
+      data.descriptions.forEach((d, i) => addResultBox(`简介 ${i + 1}`, d));
+
+      addResultBox("标签 A（#SEO，放简介）", data.seoHashtags.join(" "));
+      addResultBox("标签 B（逗号，放Tag栏）", data.tagList.join(", "));
+
+      data.thumbnails.forEach((item, i) => {
+        const title = item?.forTitle ? `缩略图指令 ${i + 1}（对应：${item.forTitle}）` : `缩略图指令 ${i + 1}`;
+        addResultBox(title, String(item?.prompt || ""));
+      });
+    }
+
+    async function getImageDataUrlOrNull() {
+      const file = shotEl.files && shotEl.files[0];
+      if (!file) return null;
+      return fileToDataURL(file);
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+  </script>
+</body>
+</html>
